@@ -6,6 +6,7 @@ export default function Sidebar() {
   const [thinkText, setThinkText] = useState("I'm thinking...");
   const [sayText, setSayText] = useState("Hello world!");
   const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const [rotate, setRotate] = useState(0);
   const handleDragStart = (e, blockType) => {
     e.dataTransfer.setData("text/plain", blockType);
   };
@@ -16,16 +17,34 @@ export default function Sidebar() {
       <div
         className="flex flex-row flex-wrap bg-blue-500 text-white px-2 py-1 my-2 text-sm cursor-move rounded-sm"
         draggable="true"
-        onDragStart={(e) => handleDragStart(e, "LEFT_10")}
+        onDragStart={(e) => handleDragStart(e, `X_${coords["x"]}`)}
       >
-        {"Move left 10 steps"}
+        {"Move X by"}
+        <input
+          type="text"
+          value={coords.x}
+          onChange={(e) =>
+            setCoords((prev) => ({ ...prev, x: e.target.value }))
+          }
+          className="ml-2 w-16 bg-purple-300 text-black px-1 rounded-sm"
+        />
+        {"steps"}
       </div>
       <div
         className="flex flex-row flex-wrap bg-blue-500 text-white px-2 py-1 my-2 text-sm cursor-move rounded-sm"
         draggable="true"
-        onDragStart={(e) => handleDragStart(e, "RIGHT_10")}
+        onDragStart={(e) => handleDragStart(e, `Y_${coords["y"]}`)}
       >
-        {"Move right 10 steps"}
+        {"Move Y by"}
+        <input
+          type="text"
+          value={coords.y}
+          onChange={(e) =>
+            setCoords((prev) => ({ ...prev, y: e.target.value }))
+          }
+          className="ml-2 w-16 bg-purple-300 text-black px-1 rounded-sm"
+        />
+        {"steps"}
       </div>
       <div
         className="flex flex-row flex-wrap bg-blue-500 text-white px-2 py-1 my-2 text-sm cursor-move rounded-sm"
@@ -73,6 +92,28 @@ export default function Sidebar() {
         {"Turn "}
         <Icon name="redo" size={15} className="text-white mx-2" />
         {"15 degrees left"}
+      </div>
+      <div
+        className="flex flex-row flex-wrap bg-blue-500 text-white px-2 py-1 my-2 text-sm cursor-move rounded-sm"
+        draggable="true"
+        onDragStart={(e) => handleDragStart(e, `ROT_${rotate}`)}
+      >
+        Rotate by
+        <div className="flex flex-row">
+          <input
+            type="text"
+            value={rotate}
+            onChange={(e) => setRotate(e.target.value)}
+            className="ml-2 w-16 bg-purple-300 text-black px-1 rounded-sm"
+          />
+        </div>
+      </div>
+      <div
+        className="flex flex-row flex-wrap bg-blue-500 text-white px-2 py-1 my-2 text-sm cursor-move rounded-sm"
+        draggable="true"
+        onDragStart={(e) => handleDragStart(e, "REP")}
+      >
+        {"Repeat"}
       </div>
 
       <div className="font-bold mt-4">{"Looks"}</div>

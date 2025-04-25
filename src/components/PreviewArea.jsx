@@ -6,120 +6,28 @@ import React, {
   useMemo,
 } from "react";
 import catSvgUrl from "../assets/cat.svg?url";
+import { getCanvasMousePos, checkCollision } from "../util/utilfunc";
+import SpeechBubble from "./SpeechBubble";
+import { useGlobalContext } from "../GlobalContext/GlobalContext";
 
 const CANVAS_WIDTH = 480;
 const CANVAS_HEIGHT = 480;
 
-const getCanvasMousePos = (canvas, event) => {
-  if (!canvas) return { x: 0, y: 0 };
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  return {
-    x: (event.clientX - rect.left) * scaleX,
-    y: (event.clientY - rect.top) * scaleY,
-  };
-};
+const PreviewArea = () => {
+  const {
+    spriteMoveData,
+    dirobj,
+    selectedSpriteId,
+    setSelectedSpriteId,
+    resetAll,
+  } = useGlobalContext();
 
-const checkCollision = (futX, futY, sprite2, dimensions) => {
-  if (!dimensions || !dimensions.width || !dimensions.height) return null;
-
-  const futW = dimensions.width;
-  const futH = dimensions.height;
-  const sprX = sprite2.x;
-  const sprY = sprite2.y;
-  const sprW = dimensions.width;
-  const sprH = dimensions.height;
-
-  const isColliding =
-    futX < sprX + sprW &&
-    futX + futW > sprX &&
-    futY < sprY + sprH &&
-    futY + futH > sprY;
-
-  if (!isColliding) return null;
-
-  const overlapLeft = futX + futW - sprX;
-  const overlapRight = sprX + sprW - futX;
-  const overlapTop = futY + futH - sprY;
-  const overlapBottom = sprY + sprH - futY;
-
-  const minOverlap = Math.min(
-    overlapLeft,
-    overlapRight,
-    overlapTop,
-    overlapBottom
-  );
-
-  if (minOverlap === overlapLeft) return "left";
-  if (minOverlap === overlapRight) return "right";
-  if (minOverlap === overlapTop) return "top";
-  if (minOverlap === overlapBottom) return "bottom";
-
-  return null;
-};
-
-const SpeechBubble = ({ type, text, position }) => {
-  const bubbleStyle = {
-    left: `${position.x}px`,
-    top: `${position.y}px`,
-    transform: "translateX(-50%)",
-  };
-
-  const baseClasses = `
-    absolute
-    bg-white
-    border-2
-    border-black
-    p-2 text-sm
-    min-w-[60px]
-    max-w-[150px]
-    z-10
-    shadow-md
-    text-center
-  `;
-
-  const typeClasses = type === "think" ? "rounded-full" : "rounded-lg";
-
-  const SpeechTail = () => (
-    <div
-      className="absolute left-1/2 -bottom-[9px] w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[10px] border-t-black"
-      style={{ transform: "translateX(-50%)" }}
-    >
-      <div className="absolute -top-[12px] -left-[6px] w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white"></div>
-    </div>
-  );
-
-  const ThinkBubbles = () => (
-    <div
-      className="absolute -bottom-5 left-1/2"
-      style={{ transform: "translateX(-60%)" }}
-    >
-      <div className="absolute bottom-0 w-3 h-3 bg-white border border-black rounded-full"></div>
-      <div className="absolute -bottom-3 -left-3 w-2 h-2 bg-white border border-black rounded-full"></div>
-    </div>
-  );
-  console.log("tt", text);
-  let ntext = text.split("_");
-  return (
-    <div className={`${baseClasses} ${typeClasses}`} style={bubbleStyle}>
-      {ntext[0]}
-      {type === "think" ? <ThinkBubbles /> : <SpeechTail />}
-    </div>
-  );
-};
-
-const PreviewArea = ({
-  spriteMoveData,
-  dirobj,
-  selectedSpriteId,
-  setSelectedSpriteId,
-}) => {
   const canvasRef = useRef(null);
   const nextSpriteId = useRef(0);
   const animationFrameIdRef = useRef(null);
   const spriteDimensionsRef = useRef({ width: 0, height: 0 });
   const bubbleTimeoutRefs = useRef({});
+  const spriteStepsRef = useRef({});
 
   const [catImage, setCatImage] = useState(null);
   const [sprites, setSprites] = useState([]);
@@ -127,8 +35,21 @@ const PreviewArea = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentDirection, setCurrentDirection] = useState({});
   const [activeBubbles, setActiveBubbles] = useState({});
+  const [pausedSprites, setPausedSprites] = useState({});
 
-  const currentMoveData = useMemo(() => spriteMoveData || [], [spriteMoveData]);
+  const currentMoveData = useMemo(() => spriteMoveData || {}, [spriteMoveData]);
+
+  const handleReset = () => {
+    setSprites([]);
+    setSelectedSpriteId(null);
+    spriteStepsRef.current = {};
+    setCurrentDirection({});
+    setPausedSprites({});
+    setActiveBubbles({});
+    nextSpriteId.current = 0;
+
+    resetAll();
+  };
 
   useEffect(() => {
     const fixed = {};
@@ -154,20 +75,8 @@ const PreviewArea = ({
           angle: 0,
           message: null,
         });
-        const id1 = nextSpriteId.current++;
-        initialSprites.push({
-          id: id1,
-          x: CANVAS_WIDTH * 0.75 - img.width / 2,
-          y: CANVAS_HEIGHT / 2 - img.height / 2,
-          angle: 0,
-          message: null,
-        });
+
         setSprites(initialSprites);
-        setCurrentDirection((prev) => ({
-          ...prev,
-          [String(id0)]: 1,
-          [String(id1)]: 1,
-        }));
       }
     };
     img.onerror = (err) => {
@@ -203,7 +112,7 @@ const PreviewArea = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     sprites.forEach((sprite) => {
-      const { id, x, y, angle, message } = sprite;
+      const { id, x, y, angle } = sprite;
       const rad = angle * (Math.PI / 180);
       const drawX = x;
       const drawY = y;
@@ -222,57 +131,6 @@ const PreviewArea = ({
     });
   }, [sprites, catImage, selectedSpriteId, isAnimating]);
 
-  useEffect(() => {
-    if (!spriteDimensionsRef.current.height) {
-      return;
-    }
-
-    const newActiveBubbles = { ...activeBubbles };
-    let bubblesChanged = false;
-
-    currentMoveData.forEach(({ id, action, message, time }) => {
-      const sprite = sprites.find((s) => s.id === id);
-      if (sprite && (action === "SAY" || action === "THINK") && message) {
-        const duration = (parseFloat(time) || 1) * 1000;
-
-        const bubbleX = sprite.x + spriteDimensionsRef.current.width / 2;
-        const bubbleY = sprite.y - 25;
-        const existing = activeBubbles[id];
-        if (
-          !existing ||
-          existing.text !== message ||
-          existing.type !== action.toLowerCase()
-        ) {
-          if (bubbleTimeoutRefs.current[id]) {
-            clearTimeout(bubbleTimeoutRefs.current[id]);
-          }
-
-          newActiveBubbles[id] = {
-            type: action.toLowerCase(),
-            text: message,
-            x: bubbleX,
-            y: bubbleY,
-          };
-          bubblesChanged = true;
-
-          bubbleTimeoutRefs.current[id] = setTimeout(() => {
-            setActiveBubbles((prev) => {
-              const updated = { ...prev };
-              delete updated[id];
-              return updated;
-            });
-          }, duration);
-        }
-      }
-    });
-
-    if (bubblesChanged) {
-      setActiveBubbles(newActiveBubbles);
-    }
-
-    return () => {};
-  }, [currentMoveData, sprites, spriteDimensionsRef.current.height]);
-
   const handleAdd = useCallback(() => {
     if (!catImage || !canvasRef.current || isAnimating) return;
     const { width, height } = spriteDimensionsRef.current;
@@ -287,7 +145,6 @@ const PreviewArea = ({
     };
 
     setSprites((prevSprites) => [...prevSprites, newSprite]);
-    setCurrentDirection((prev) => ({ ...prev, [String(newId)]: 1 }));
     nextSpriteId.current += 1;
     setSelectedSpriteId(newId);
   }, [catImage, isAnimating, setSelectedSpriteId]);
@@ -385,8 +242,56 @@ const PreviewArea = ({
     };
   }, [handleMouseDown, handleMouseMove, handleMouseUp]);
 
+  const processSpeechAction = useCallback((key, sprite, currIN) => {
+    const { action, message, time } = currIN;
+
+    if (bubbleTimeoutRefs.current[sprite.id]) {
+      clearTimeout(bubbleTimeoutRefs.current[sprite.id]);
+    }
+
+    const { width, height } = spriteDimensionsRef.current;
+    const bubbleX = sprite.x + width / 2;
+    const bubbleY = sprite.y - 25;
+    const duration = (parseFloat(time) || 1) * 1000;
+
+    setActiveBubbles((prev) => ({
+      ...prev,
+      [sprite.id]: {
+        type: action.toLowerCase(),
+        text: message,
+        x: bubbleX,
+        y: bubbleY,
+      },
+    }));
+
+    setPausedSprites((prev) => ({
+      ...prev,
+      [key]: true,
+    }));
+
+    bubbleTimeoutRefs.current[sprite.id] = setTimeout(() => {
+      setActiveBubbles((prev) => {
+        const updated = { ...prev };
+        delete updated[sprite.id];
+        return updated;
+      });
+
+      setPausedSprites((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+
+      spriteStepsRef.current[key] = {
+        action: currIN.action,
+        advanceToNext: true,
+      };
+    }, duration);
+  }, []);
+
   const animateStep = useCallback(() => {
     const { width: imgWidth, height: imgHeight } = spriteDimensionsRef.current;
+
     if (!imgWidth || !imgHeight) {
       if (isAnimating) {
         animationFrameIdRef.current = requestAnimationFrame(animateStep);
@@ -394,87 +299,112 @@ const PreviewArea = ({
       return;
     }
 
-    setSprites((prevSprites) => {
-      let nextSprites = [...prevSprites];
-      let localDir = { ...currentDirection };
+    const localDir = structuredClone(currentDirection);
+    const newSprites = [...sprites];
+    let anyUpdated = false;
 
-      currentMoveData.forEach(
-        ({ id, vx = 0, vy = 0, vr = 0, message, type, time }) => {
-          const spriteIndex = nextSprites.findIndex((s) => s.id === id);
-          if (spriteIndex === -1) return;
-
-          const sprite = nextSprites[spriteIndex];
-          const dir = localDir[String(sprite.id)] ?? 1;
-
-          let dX = vx * dir;
-          let dY = vy * dir;
-          let pX = sprite.x + dX;
-          let pY = sprite.y + dY;
-          let pAngle = (sprite.angle + vr * dir) % 360;
-          if (pAngle < 0) pAngle += 360;
-
-          let bounced = false;
-          if (pX < 0 || pX > CANVAS_WIDTH - imgWidth) {
-            pX = Math.max(0, Math.min(pX, CANVAS_WIDTH - imgWidth));
-            localDir[String(sprite.id)] *= -1;
-            bounced = true;
-          }
-          if (pY < 0 || pY > CANVAS_HEIGHT - imgHeight) {
-            pY = Math.max(0, Math.min(pY, CANVAS_HEIGHT - imgHeight));
-            if (!bounced) localDir[String(sprite.id)] *= -1;
-          }
-
-          for (let i = 0; i < nextSprites.length; i++) {
-            if (i === spriteIndex) continue;
-
-            const other = nextSprites[i];
-            const side = checkCollision(
-              pX,
-              pY,
-              other,
-              spriteDimensionsRef.current
-            );
-            if (side) {
-              pX = sprite.x;
-              pY = sprite.y;
-              localDir[String(sprite.id)] *= -1;
-              localDir[String(other.id)] *= -1;
-              break;
-            }
-          }
-
-          nextSprites[spriteIndex] = {
-            ...sprite,
-            x: pX,
-            y: pY,
-            angle: pAngle,
-            message,
-            type,
-            time,
-          };
+    for (const key in spriteStepsRef.current) {
+      const stepInfo = spriteStepsRef.current[key];
+      if (stepInfo.advanceToNext) {
+        if (stepInfo.action !== "REP") {
+          localDir[key]["min"] += 1;
+        } else {
+          localDir[key]["min"] = 0;
         }
-      );
+        delete spriteStepsRef.current[key];
+        anyUpdated = true;
+      }
+    }
 
+    for (const key in currentMoveData) {
+      if (pausedSprites[key]) continue;
+
+      const mini = localDir[key]["min"];
+      const maxi = localDir[key]["max"];
+      if (mini >= maxi) continue;
+
+      const currIN = currentMoveData[key][mini];
+      console.log(currIN);
+      const { vx = 0, vy = 0, vr = 0, action, message, time } = currIN;
+
+      const spriteIndex = newSprites.findIndex((s) => s.id === parseInt(key));
+      if (spriteIndex === -1) continue;
+
+      const sprite = newSprites[spriteIndex];
+      if ((action === "SAY" || action === "THINK") && message) {
+        processSpeechAction(key, sprite, currIN);
+        continue;
+      }
+
+      const dir = localDir[key]["dirn"] ?? 1;
+      const dX = Number(vx) * dir;
+      const dY = Number(vy) * dir;
+      const parsedVr = Number(vr);
+      const dA = Number.isNaN(parsedVr) ? 0 : parsedVr * dir;
+      let pX = sprite.x + dX;
+      let pY = sprite.y + dY;
+      let pAngle = (sprite.angle + dA) % 360;
+      if (pAngle < 0) pAngle += 360;
+
+      let bounced = false;
+      if (pX < 0 || pX > CANVAS_WIDTH - imgWidth) {
+        pX = Math.max(0, Math.min(pX, CANVAS_WIDTH - imgWidth));
+        localDir[key]["dirn"] *= -1;
+        bounced = true;
+      }
+      if (pY < 0 || pY > CANVAS_HEIGHT - imgHeight) {
+        pY = Math.max(0, Math.min(pY, CANVAS_HEIGHT - imgHeight));
+        if (!bounced) localDir[key]["dirn"] *= -1;
+      }
+
+      for (let i = 0; i < newSprites.length; i++) {
+        if (i === spriteIndex) continue;
+        const other = newSprites[i];
+        const side = checkCollision(pX, pY, other, spriteDimensionsRef.current);
+        if (side) {
+          pX = sprite.x;
+          pY = sprite.y;
+          localDir[key]["dirn"] *= -1;
+          localDir[other.id]["dirn"] *= -1;
+          break;
+        }
+      }
+
+      newSprites[spriteIndex] = {
+        ...sprite,
+        x: pX,
+        y: pY,
+        angle: pAngle,
+      };
+
+      if (action !== "REP") {
+        localDir[key]["min"] += 1;
+      } else {
+        localDir[key]["min"] = 0;
+      }
+
+      anyUpdated = true;
+    }
+
+    if (anyUpdated) {
+      setSprites(newSprites);
       setCurrentDirection(localDir);
-
-      return nextSprites;
-    });
+    }
 
     if (isAnimating) {
       animationFrameIdRef.current = requestAnimationFrame(animateStep);
     }
-  }, [currentMoveData, currentDirection, isAnimating]);
+  }, [
+    currentMoveData,
+    currentDirection,
+    sprites,
+    pausedSprites,
+    isAnimating,
+    processSpeechAction,
+  ]);
 
   useEffect(() => {
-    const hasAnimationActions = currentMoveData.some(
-      ({ action, vx, vy, vr }) =>
-        action === "SAY" ||
-        action === "THINK" ||
-        vx !== 0 ||
-        vy !== 0 ||
-        vr !== 0
-    );
-    if (hasAnimationActions && isAnimating) {
+    if (isAnimating) {
       if (!animationFrameIdRef.current) {
         setSelectedSpriteId(null);
         setDraggingSpriteInfo(null);
@@ -538,13 +468,12 @@ const PreviewArea = ({
         >
           {isAnimating ? "Stop" : "Start"} Animation
         </button>
-        <span
-          className={`ml-4 text-sm font-medium ${
-            isAnimating ? "text-purple-600" : "text-gray-500"
-          }`}
+        <button
+          onClick={handleReset}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
         >
-          {isAnimating ? "Animation Running" : "Animation Idle"}
-        </span>
+          Reset
+        </button>
       </div>
 
       <div className="relative flex justify-center items-center flex-grow w-full">

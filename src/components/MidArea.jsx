@@ -1,16 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useGlobalContext } from "../GlobalContext/GlobalContext";
+const MidArea = () => {
+  const {
+    selectedSpriteId,
+    idBlockData,
+    setIdBlockData,
+    setSpriteMoveData,
+    setDirObj,
+  } = useGlobalContext();
 
-const MidArea = ({
-  blocks,
-  setBlocks,
-  selectedSpriteId,
-  setSelectedSpriteId,
-  spriteMoveData,
-  setSpriteMoveData,
-  setDirbj,
-  dirobj,
-}) => {
-  const [idBlockData, setIdBlockData] = useState({});
   let [maxi, setMaxi] = useState(0);
 
   const handleDragOver = (e) => {
@@ -33,27 +31,17 @@ const MidArea = ({
   };
 
   const movearr = useMemo(() => {
-    let temp = [];
-    for (let i = 0; i < maxi; i++) {
-      for (const [key, value] of Object.entries(idBlockData)) {
+    let tempObj = {};
+
+    for (const [key, value] of Object.entries(idBlockData)) {
+      let temp = [];
+      for (let i = 0; i < value.length; i++) {
         if (value[i] != undefined) {
           let sp = value[i].split("_");
           const type = sp[0];
           const val = parseFloat(sp[1]);
-          let nkey = parseInt(key);
-          if (type === "LEFT") {
+          if (type === "X") {
             temp.push({
-              id: nkey,
-              vx: -val,
-              vy: 0,
-              vr: 0,
-              action: null,
-              message: null,
-              time: null,
-            });
-          } else if (type === "RIGHT") {
-            temp.push({
-              id: nkey,
               vx: val,
               vy: 0,
               vr: 0,
@@ -61,9 +49,17 @@ const MidArea = ({
               message: null,
               time: null,
             });
+          } else if (type === "Y") {
+            temp.push({
+              vx: 0,
+              vy: val,
+              vr: 0,
+              action: null,
+              message: null,
+              time: null,
+            });
           } else if (type === "ROT") {
             temp.push({
-              id: nkey,
               vx: 0,
               vy: 0,
               vr: val,
@@ -73,17 +69,15 @@ const MidArea = ({
             });
           } else if (type === "XY") {
             temp.push({
-              id: nkey,
               vx: parseFloat(sp[1]),
               vy: parseFloat(sp[2]),
-              vr: val,
+              vr: 0,
               action: null,
               message: null,
               time: null,
             });
           } else if (type === "ROTLEFT") {
             temp.push({
-              id: nkey,
               vx: 0,
               vy: 0,
               vr: -val,
@@ -91,9 +85,17 @@ const MidArea = ({
               message: null,
               time: null,
             });
+          } else if (type === "REP") {
+            temp.push({
+              vx: 0,
+              vy: 0,
+              vr: -val,
+              action: type,
+              message: null,
+              time: null,
+            });
           } else if (type === "THINK" || type === "SAY") {
             temp.push({
-              id: nkey,
               vx: 0,
               vy: 0,
               vr: 0,
@@ -104,14 +106,24 @@ const MidArea = ({
           }
         }
       }
+      tempObj[String(key)] = temp;
     }
-    console.log("ttttttt", temp);
-    return temp;
+
+    return tempObj;
   }, [idBlockData, maxi]);
+
+  const dirMemo = useMemo(() => {
+    const temp = {};
+    for (const [key, value] of Object.entries(idBlockData)) {
+      temp[String(key)] = { dirn: 1, min: 0, max: value.length };
+    }
+    return temp;
+  }, [idBlockData]);
 
   useEffect(() => {
     setSpriteMoveData(movearr);
-  }, [movearr, setSpriteMoveData]);
+    setDirObj(dirMemo);
+  }, [movearr, dirMemo, setSpriteMoveData]);
 
   return (
     <div
@@ -130,16 +142,18 @@ const MidArea = ({
               {(() => {
                 const [type, ...rest] = block.split("_");
                 switch (type) {
-                  case "LEFT":
-                    return `Move left by ${rest[0]} steps`;
-                  case "RIGHT":
-                    return `Move right by ${rest[0]} steps`;
+                  case "X":
+                    return `Move X by ${rest[0]} steps`;
+                  case "Y":
+                    return `Move Y by ${rest[0]} steps`;
                   case "ROT":
                     return `Rotate by ${rest[0]} degrees`;
                   case "ROTLEFT":
                     return `Rotate left by ${rest[0]} degrees`;
                   case "XY":
                     return `Move by X: ${rest[0]} steps, Y: ${rest[1]} steps`;
+                  case "REP":
+                    return `Repeat Actions`;
                   case "THINK":
                     return `Think: "${rest
                       .slice(0, -1)
