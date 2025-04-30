@@ -5,8 +5,8 @@ export default function Sidebar() {
   const [duration, setDuration] = useState(1);
   const [thinkText, setThinkText] = useState("I'm thinking...");
   const [sayText, setSayText] = useState("Hello world!");
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
-  const [rotate, setRotate] = useState(0);
+  const [coords, setCoords] = useState({ x: 5, y: 5 });
+  const [rotate, setRotate] = useState(10);
   const handleDragStart = (e, blockType) => {
     e.dataTransfer.setData("text/plain", blockType);
   };

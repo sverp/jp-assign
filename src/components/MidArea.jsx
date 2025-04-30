@@ -114,8 +114,12 @@ const MidArea = () => {
 
   const dirMemo = useMemo(() => {
     const temp = {};
+    let maxx = 0;
     for (const [key, value] of Object.entries(idBlockData)) {
-      temp[String(key)] = { dirn: 1, min: 0, max: value.length };
+      maxx = Math.max(maxi, value.length);
+    }
+    for (const [key, value] of Object.entries(idBlockData)) {
+      temp[String(key)] = { dirn: 1, min: 0, max: maxx };
     }
     return temp;
   }, [idBlockData]);
