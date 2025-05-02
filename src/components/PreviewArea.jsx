@@ -62,7 +62,6 @@ const PreviewArea = () => {
 
   const handleResetPosition = () => {
     if (isAnimating) {
-      // Stop animation first
       setIsAnimating(false);
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
@@ -70,7 +69,6 @@ const PreviewArea = () => {
       }
     }
 
-    // Reset sprites to their initial positions
     setSprites((prev) =>
       prev.map((sprite) => ({
         ...sprite,
@@ -80,31 +78,24 @@ const PreviewArea = () => {
       }))
     );
 
-    // Reset animation state and actions
     spriteStepsRef.current = {};
 
-    // Completely reset action state for each sprite
     Object.keys(currentDirection.current).forEach((key) => {
       if (currentDirection.current[key]) {
-        // Reset position in action sequence
         currentDirection.current[key].min = 0;
-        // Reset direction to initial direction (forward)
         currentDirection.current[key].dirn = 1;
       }
     });
 
-    // Reset any swapped or modified actions back to original
     if (
       initialMoveData.current &&
       Object.keys(initialMoveData.current).length > 0
     ) {
-      // Deep copy to ensure we're not keeping any references to modified data
       currentMoveData.current = JSON.parse(
         JSON.stringify(initialMoveData.current)
       );
     }
 
-    // Clear any active speech bubbles
     setActiveBubbles({});
     setPausedSprites({});
     Object.values(bubbleTimeoutRefs.current).forEach(clearTimeout);
@@ -212,7 +203,6 @@ const PreviewArea = () => {
       angle: 0,
     };
 
-    // Store initial position for reset
     setInitialSpritePositions((prev) => ({
       ...prev,
       [newId]: { x: initialX, y: initialY, angle: 0 },
@@ -293,7 +283,6 @@ const PreviewArea = () => {
         )
       );
 
-      // Update initial position when manually moved
       setInitialSpritePositions((prev) => ({
         ...prev,
         [id]: { ...prev[id], x: newX, y: newY },
@@ -405,9 +394,9 @@ const PreviewArea = () => {
       const maxi = currentDirection.current[key]["max"];
       if (mini >= maxi) continue;
       const currIN = currentMoveData.current[key][mini];
-      /* if (currIN == undefined) {
+      if (currIN == undefined) {
         continue;
-      } */
+      }
       const { vx = 0, vy = 0, vr = 0, action, message, time } = currIN;
 
       const spriteIndex = newSprites.findIndex((s) => s.id === parseInt(key));
@@ -435,7 +424,6 @@ const PreviewArea = () => {
       if (pX < 0 || pX > CANVAS_WIDTH - imgWidth) {
         pX = Math.max(0, Math.min(pX, CANVAS_WIDTH - imgWidth));
         currentDirection.current[key]["dirn"] *= -1;
-        //console.log(JSON.stringify(currentDirection.current, null, 2));
 
         bounced = true;
       }
@@ -458,6 +446,8 @@ const PreviewArea = () => {
     }
     const collisionsProcessed = new Set();
     for (let i = 0; i < pendingUpdates.length; i++) {
+      console.log(JSON.stringify(sprites, null, 2));
+
       const updateA = pendingUpdates[i];
       for (let j = i + 1; j < pendingUpdates.length; j++) {
         const updateB = pendingUpdates[j];
@@ -475,8 +465,8 @@ const PreviewArea = () => {
 
         if (collision) {
           //console.log(collisionsProcessed);
-          //console.log(currentMoveData.current);
-          //console.log(JSON.stringify(currentDirection.current, null, 2));
+          console.log(currentMoveData.current);
+          console.log(JSON.stringify(currentDirection.current, null, 2));
           collisionsProcessed.add(collisionKey);
           updateA.newX = updateA.oldX;
           updateA.newY = updateA.oldY;

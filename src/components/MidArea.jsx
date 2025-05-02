@@ -18,7 +18,8 @@ const MidArea = () => {
   const handleDrop = (e) => {
     e.preventDefault();
     const blockType = e.dataTransfer.getData("text/plain");
-    if (selectedSpriteId !== undefined) {
+
+    if (selectedSpriteId !== undefined && selectedSpriteId !== null) {
       setIdBlockData((prev) => ({
         ...prev,
         [selectedSpriteId]: [...(prev[selectedSpriteId] || []), blockType],
